@@ -7,8 +7,20 @@ library(maps)
 library(plotly)
 library(htmlwidgets)
 
+file_info <- file.info("retraction_watch.csv")
+old_locale <- Sys.getlocale("LC_TIME")
+Sys.setlocale("LC_TIME", "C")
+update_date <- format(file_info$mtime, "%B %d, %Y")
+Sys.setlocale("LC_TIME", old_locale)
+
 ui <- navbarPage(
-  title = "RWD Dashboard",
+  title = tagList(
+    "RWD Dashboard",
+    tags$span(
+      paste("LATEST UPDATE:", toupper(update_date)),
+      style = "position: absolute; right: 25px; top: 18px; font-size: 0.8rem; font-family: 'Inter', sans-serif; color: #666666; font-weight: 700; letter-spacing: 0.5px;"
+    )
+  ),
   theme = bs_theme(
     primary = "#333333", 
     secondary = "#666666"
