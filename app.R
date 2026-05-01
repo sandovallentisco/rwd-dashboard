@@ -7,7 +7,20 @@ library(maps)
 library(plotly)
 library(htmlwidgets)
 
-file_info <- file.info("retraction_watch.csv")
+
+file_path <- "retraction_watch.csv"
+url <- "https://gitlab.com/crossref/retraction-watch-data/-/raw/main/retraction_watch.csv"
+
+# Download the file if it doesn't exist or is older than 24 hours
+if (!file.exists(file_path) || as.numeric(difftime(Sys.time(), file.info(file_path)$mtime, units = "hours")) > 24) {
+  tryCatch({
+    download.file(url, destfile = file_path, mode = "wb", quiet = TRUE)
+  }, error = function(e) {
+    message("Failed to download CSV from GitLab. Using local copy if available.")
+  })
+}
+
+file_info <- file.info(file_path)
 old_locale <- Sys.getlocale("LC_TIME")
 Sys.setlocale("LC_TIME", "C")
 update_date <- format(file_info$mtime, "%B %d, %Y")

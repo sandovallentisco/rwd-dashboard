@@ -1,0 +1,12 @@
+name: rwd-dashboard
+title: rwd-dashboard
+username: sandovallentisco
+account: sandovallentisco
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17275746
+bundleId: 11935410
+url: https://sandovallentisco.shinyapps.io/rwd-dashboard/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
