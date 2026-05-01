@@ -120,7 +120,7 @@ ui <- navbarPage(
                             tableOutput("top_reasons_table")
                         ),
                         div(class = "card-footer text-muted small",
-                            "* Note: A single paper can have multiple reasons for retraction. Therefore, the sum of all reasons may exceed the total number of retractions."
+                            textOutput("reasons_exclusion_text")
                         )
                     )
              )
@@ -520,9 +520,20 @@ server <- function(input, output, session) {
       rename(Publisher = PublisherGroup)
   }, width = "100%", striped = TRUE, hover = TRUE, bordered = TRUE, align = "lr")
   
+  output$reasons_exclusion_text <- renderText({
+    req(reason_data())
+    journal_inv <- reason_data() %>% filter(str_detect(Reason, "(?i)Investigation by Journal/Publisher")) %>% pull(Retractions) %>% sum(na.rm=TRUE)
+    third_party_inv <- reason_data() %>% filter(str_detect(Reason, "(?i)Investigation by Third Party")) %>% pull(Retractions) %>% sum(na.rm=TRUE)
+    
+    paste("* Note: A single paper can have multiple reasons for retraction.", 
+          "We excluded 'Investigation by Journal/Publisher' (", format(journal_inv, big.mark=","), "cases) and", 
+          "'Investigation by Third Party' (", format(third_party_inv, big.mark=","), "cases) as they indicate the initiator rather than the underlying reason.")
+  })
+  
   output$top_reasons_table <- renderTable({
     req(reason_data())
     reason_data() %>%
+      filter(!str_detect(Reason, "(?i)Investigation by Journal/Publisher|Investigation by Third Party")) %>%
       head(10) %>%
       mutate(Retractions = as.integer(Retractions)) %>%
       rename(`Reason for Retraction` = Reason)
