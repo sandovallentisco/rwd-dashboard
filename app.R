@@ -99,10 +99,13 @@ ui <- navbarPage(
                             fluidRow(
                               column(6, plotlyOutput("slope_plot", height = "500px")),
                               column(6, 
-                                     plotlyOutput("diff_dist_plot", height = "500px"),
-                                     div(class = "text-muted small text-center mt-2", textOutput("diff_outliers_text"))
+                                     plotlyOutput("diff_dist_plot", height = "500px")
                               )
                             )
+                        ),
+                        div(class = "card-footer text-muted small",
+                            textOutput("slope_outliers_text"),
+                            textOutput("diff_outliers_text")
                         ),
                         div(class = "card-footer",
                             uiOutput("diff_stats")
@@ -118,6 +121,9 @@ ui <- navbarPage(
                         ),
                         div(class = "card-body p-0",
                             tableOutput("top_subjects_table")
+                        ),
+                        div(class = "card-footer text-muted small",
+                            "* Note: A single paper can have multiple subjects, but each broad category is counted at most once per paper."
                         )
                     )
              ),
@@ -240,7 +246,13 @@ server <- function(input, output, session) {
       ))
     # Process subjects data
     subject_list <- strsplit(as.character(df$Subject), ";")
-    subject_df <- data.frame(Subject = trimws(unlist(subject_list)))
+    
+    # Create a dataframe tracking the original row to ensure max 1 count per case
+    subject_df <- data.frame(
+      RowID = rep(seq_len(nrow(df)), sapply(subject_list, length)),
+      Subject = trimws(unlist(subject_list)),
+      stringsAsFactors = FALSE
+    )
     
     subject_counts <- subject_df %>%
       filter(Subject != "", !is.na(Subject)) %>%
@@ -256,6 +268,7 @@ server <- function(input, output, session) {
         Acronym == "(SOC)" ~ "Social Sciences",
         TRUE ~ Acronym
       )) %>%
+      distinct(RowID, Category) %>% # Count each category max once per case
       count(Category, name = "Retractions") %>%
       arrange(desc(Retractions))
       
@@ -435,11 +448,31 @@ server <- function(input, output, session) {
     ggplotly(p, tooltip = c("text", "color"))
   })
   
+  output$slope_outliers_text <- renderText({
+    req(retraction_data())
+    df <- retraction_data() %>% 
+      filter(!is.na(PubYear), !is.na(RetYear))
+    
+    outliers <- sum(df$PubYear < 1980 | df$RetYear < 1980, na.rm = TRUE)
+    
+    valid_df <- df %>% filter(PubYear >= 1980, RetYear >= 1980)
+    sampled_note <- ""
+    if(nrow(valid_df) > 1500) {
+      sampled_note <- "A random sample of 1500 records is shown for performance."
+    }
+    
+    if (outliers > 0) {
+      paste("* Note (Slope Plot):", outliers, "older records (before 1980) were excluded.", sampled_note)
+    } else {
+      paste("* Note (Slope Plot):", sampled_note)
+    }
+  })
+
   output$diff_outliers_text <- renderText({
     req(retraction_data())
     outliers <- sum(retraction_data()$DiffYear > 30, na.rm = TRUE)
     if (outliers > 0) {
-      paste("* Note:", outliers, "outliers (lag > 30 years) were excluded to improve visualization.")
+      paste("* Note (Lag Distribution):", outliers, "outliers (lag > 30 years) were excluded to improve visualization.")
     } else {
       ""
     }
