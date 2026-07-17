@@ -29,12 +29,12 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: "4.2.2"
-          use-public-rspm: true
+          use-public-rspm: false
 
       - name: Install R dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          cache-version: 2
+          cache-version: 3
           packages: |
             any::shiny
             any::ggplot2
@@ -50,6 +50,8 @@ jobs:
       - name: Validate deployment dependencies
         shell: Rscript {0}
         run: |
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+
           required_packages <- c(
             "shiny",
             "ggplot2",
@@ -75,9 +77,14 @@ jobs:
 
           deployment_dependencies <- rsconnect::appDependencies(appDir = ".")
           expected_app_packages <- setdiff(required_packages, "rsconnect")
+          repositories <- unique(stats::na.omit(deployment_dependencies$Repository))
+          invalid_repositories <- repositories[
+            nzchar(repositories) & !grepl("^https?://", repositories)
+          ]
           stopifnot(
             nrow(deployment_dependencies) > 0,
-            all(expected_app_packages %in% deployment_dependencies$Package)
+            all(expected_app_packages %in% deployment_dependencies$Package),
+            length(invalid_repositories) == 0
           )
 
       - name: Download the latest Retraction Watch data
@@ -173,6 +180,8 @@ jobs:
           SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
           SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+
           required_secrets <- c("SHINYAPPS_TOKEN", "SHINYAPPS_SECRET")
           missing_secrets <- required_secrets[!nzchar(Sys.getenv(required_secrets))]
           if (length(missing_secrets) > 0) {
