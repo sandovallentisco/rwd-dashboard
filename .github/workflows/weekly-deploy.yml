@@ -34,6 +34,7 @@ jobs:
       - name: Install R dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          cache-version: 2
           packages: |
             any::shiny
             any::ggplot2
@@ -44,6 +45,40 @@ jobs:
             any::plotly
             any::htmlwidgets
             any::rsconnect
+            any::cpp11
+
+      - name: Validate deployment dependencies
+        shell: Rscript {0}
+        run: |
+          required_packages <- c(
+            "shiny",
+            "ggplot2",
+            "dplyr",
+            "stringr",
+            "bslib",
+            "maps",
+            "plotly",
+            "htmlwidgets",
+            "rsconnect",
+            "cpp11"
+          )
+
+          missing_packages <- required_packages[
+            !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+          ]
+          if (length(missing_packages) > 0) {
+            stop(
+              "Packages required for deployment are missing: ",
+              paste(missing_packages, collapse = ", ")
+            )
+          }
+
+          deployment_dependencies <- rsconnect::appDependencies(appDir = ".")
+          expected_app_packages <- setdiff(required_packages, "rsconnect")
+          stopifnot(
+            nrow(deployment_dependencies) > 0,
+            all(expected_app_packages %in% deployment_dependencies$Package)
+          )
 
       - name: Download the latest Retraction Watch data
         shell: Rscript {0}
