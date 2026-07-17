@@ -1,0 +1,22 @@
+relative_year,period,citing_works,mean_per_paper,median_per_paper,papers_in_denominator,matched_papers
+-10,Before retraction,873,3.2943,1,265,7976
+-9,Before retraction,1211,3.7726,1,321,7976
+-8,Before retraction,1629,4.093,1.0,398,7976
+-7,Before retraction,2102,4.0736,1.0,516,7976
+-6,Before retraction,2886,4.44,1.0,650,7976
+-5,Before retraction,3720,4.6154,1.0,806,7976
+-4,Before retraction,4813,4.7186,1.0,1020,7976
+-3,Before retraction,6356,4.7504,2.0,1338,7976
+-2,Before retraction,8473,4.5627,1,1857,7976
+-1,Before retraction,10987,3.5988,1,3053,7976
+0,Retraction year,13189,1.6536,0.0,7976,7976
+1,After retraction,9479,1.1884,0.0,7976,7976
+2,After retraction,7803,0.9783,0.0,7976,7976
+3,After retraction,6746,0.8458,0.0,7976,7976
+4,After retraction,5796,0.7267,0.0,7976,7976
+5,After retraction,5301,0.6646,0.0,7976,7976
+6,After retraction,4811,0.6032,0.0,7976,7976
+7,After retraction,4367,0.5475,0.0,7976,7976
+8,After retraction,3915,0.4908,0.0,7976,7976
+9,After retraction,3402,0.4265,0.0,7976,7976
+10,After retraction,2966,0.3719,0.0,7976,7976

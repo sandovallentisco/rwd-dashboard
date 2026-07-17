@@ -1,0 +1,21 @@
+metric,value
+candidate_raw_names,150
+candidate_author_paper_pairs,9937
+candidate_pairs_with_doi,9582
+resolved_author_paper_pairs,9182
+resolution_pct_all_pairs,92.4
+resolution_pct_doi_pairs,95.83
+resolved_openalex_authors,5156
+resolved_unique_dois,7440
+retrieved_date,2026-07-13
+source,OpenAlex
+candidate_name_limit,150
+raw_openalex_authors,5185
+automatic_merge_groups,15
+openalex_profiles_merged,29
+confirmed_initial_profiles,14
+unresolved_initial_profiles,42
+top35_high_confidence,34
+top35_review_required,1
+identity_review_date,2026-07-13
+identity_review_method,ORCID plus coauthor and affiliation continuity; no name-only automatic merges

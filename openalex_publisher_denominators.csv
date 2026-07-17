@@ -1,0 +1,16 @@
+PublisherGroup,OpenAlexPublisherIDs,OpenAlexWorks,PeriodStart,PeriodEnd,RetrievedDate,Method,MappingNote
+Hindawi (Wiley),P4310319869,384340,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,"Hindawi Publishing Corporation, kept separate from Wiley"
+IEEE,P4310319808;P4310320754;P4310321340;P4322697011;P4322632812,1525866,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,IEEE parent lineage plus unlinked OpenAlex society fragments
+Springer Nature,P4310319965;P4404664013;P4404662779;P4310319702,12929556,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,Springer Nature parent lineage plus unlinked Springer and Palgrave fragments
+Elsevier,P4310320990;P4310320146;P4310320175,20441277,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,Elsevier parent lineage plus historical Pergamon and Masson fragments
+Wiley (excl. Hindawi),P4310320595,7979156,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,Wiley lineage; Hindawi has a separate OpenAlex publisher identity
+SAGE Publications,P4310320017,2258053,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,SAGE Publishing lineage
+Taylor & Francis,P4310320547;P4310319847;P4310320348;P4310315328,4232420,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,"Taylor & Francis, Routledge, Dove Medical Press and NISC fragments"
+PLOS,P4310315706,414679,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,Public Library of Science lineage
+IOP Publishing,P4310320083,1009630,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,IOP Publishing lineage
+Oxford University Press,P4310311648,3242163,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,Oxford University Press lineage
+Spandidos,P4310320412,69431,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,Spandidos Publishing lineage
+EDP Sciences,P4310319748,299030,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,EDP Sciences lineage
+Frontiers,P4310320527,745083,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,Frontiers Media lineage
+Royal Society of Chemistry (RSC),P4310320556,781213,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,Royal Society of Chemistry lineage
+MDPI,P4310310987,2082590,1990-01-01,2026-07-13,2026-07-13,Primary source publisher lineage,Multidisciplinary Digital Publishing Institute lineage

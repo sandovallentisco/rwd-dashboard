@@ -1,0 +1,16 @@
+metric,value
+eligible_unique_doi,15467
+sampled_records,8000
+matched_openalex,7976
+retraction_cutoff_year,2015
+failed_requests,0
+random_seed,20260712
+completed_records,7976
+coverage_pct,99.7
+pre_citing_works,43050
+retraction_year_citing_works,13189
+post_citing_works,54586
+pre_mean_annual_per_paper,4.1919
+post_mean_annual_per_paper,0.6844
+retrieved_date,2026-07-13
+source,OpenAlex

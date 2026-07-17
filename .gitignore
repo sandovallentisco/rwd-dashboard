@@ -1,0 +1,12 @@
+.Renviron
+citation_impact_progress.jsonl
+citation_impact_failures.jsonl
+author_identity_work_cache.jsonl
+author_identity_author_cache.jsonl
+author_identity_author_works_cache.jsonl
+__pycache__/
+*.pyc
+rwd_refresh_status.rds
+rwd_refresh.log
+rwd_refresh.lock/
+*.backup

@@ -1,0 +1,12 @@
+metric,value
+candidate_raw_names,150
+candidate_author_paper_pairs,9937
+candidate_pairs_with_doi,9582
+resolved_author_paper_pairs,9182
+resolution_pct_all_pairs,92.4
+resolution_pct_doi_pairs,95.83
+resolved_openalex_authors,5185
+resolved_unique_dois,7440
+retrieved_date,2026-07-13
+source,OpenAlex
+candidate_name_limit,150
