@@ -1,4 +1,5 @@
 .Renviron
+.github
 citation_impact_progress.jsonl
 citation_impact_failures.jsonl
 author_identity_work_cache.jsonl

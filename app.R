@@ -19,6 +19,7 @@ cache_version <- 13L
 refresh_script_path <- file.path("scripts", "refresh_rwd_cache.R")
 refresh_status_path <- "rwd_refresh_status.rds"
 refresh_log_path <- "rwd_refresh.log"
+refresh_interval_hours <- 7 * 24
 
 reason_category_definitions <- list(
   "Data & image integrity concerns" = c(
@@ -756,7 +757,7 @@ data_refresh_needed <- function() {
     difftime(Sys.time(), file.info(file_path)$mtime, units = "hours")
   )
 
-  isTRUE(csv_age_hours > 24) ||
+  isTRUE(csv_age_hours > refresh_interval_hours) ||
     isTRUE(file.info(file_path)$mtime > file.info(cache_path)$mtime)
 }
 
@@ -774,7 +775,8 @@ launch_data_refresh <- function() {
     as.character(cache_version),
     as.character(normalization_start_year),
     as.character(normalization_end_year),
-    paste(.libPaths(), collapse = .Platform$path.sep)
+    paste(.libPaths(), collapse = .Platform$path.sep),
+    as.character(refresh_interval_hours)
   )
 
   tryCatch(
@@ -1676,7 +1678,7 @@ ui <- navbarPage(
         div(
           "Source: ",
           tags$a("Retraction Watch Database", href = "https://gitlab.com/crossref/retraction-watch-data", target = "_blank", rel = "noopener noreferrer"),
-          tags$br(), "Data refreshes automatically every 24 hours."
+          tags$br(), "Data refreshes automatically every week."
         )
       )
     )

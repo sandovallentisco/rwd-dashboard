@@ -1,0 +1,164 @@
+name: Weekly RWD refresh and shinyapps.io deploy
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-rwd-dashboard-deploy
+  cancel-in-progress: false
+
+jobs:
+  refresh-and-deploy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    env:
+      RWD_SOURCE_URL: https://gitlab.com/crossref/retraction-watch-data/-/raw/main/retraction_watch.csv
+      SHINYAPPS_ACCOUNT: sandovallentisco
+      SHINYAPPS_APP_NAME: rwd-dashboard
+
+    steps:
+      - name: Check out the dashboard
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.2.2"
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::shiny
+            any::ggplot2
+            any::dplyr
+            any::stringr
+            any::bslib
+            any::maps
+            any::plotly
+            any::htmlwidgets
+            any::rsconnect
+
+      - name: Download the latest Retraction Watch data
+        shell: Rscript {0}
+        run: |
+          source_url <- Sys.getenv("RWD_SOURCE_URL")
+          temporary_file <- tempfile(fileext = ".csv")
+          download.file(
+            source_url,
+            destfile = temporary_file,
+            mode = "wb",
+            quiet = TRUE,
+            method = "libcurl"
+          )
+
+          if (!file.exists(temporary_file) || file.info(temporary_file)$size < 1e6) {
+            stop("The downloaded Retraction Watch file is missing or unexpectedly small.")
+          }
+
+          if (!file.copy(temporary_file, "retraction_watch.csv", overwrite = TRUE)) {
+            stop("Could not install the downloaded Retraction Watch file.")
+          }
+
+      - name: Rebuild and verify the processed cache
+        shell: Rscript {0}
+        run: |
+          settings <- new.env(parent = baseenv())
+          for (expression in parse(file = "app.R")) {
+            is_assignment <-
+              is.call(expression) &&
+              identical(expression[[1]], as.name("<-"))
+            assigned_name <- if (is_assignment) as.character(expression[[2]]) else ""
+
+            if (assigned_name %in% c(
+              "cache_version",
+              "normalization_start_year",
+              "refresh_interval_hours"
+            )) {
+              eval(expression, envir = settings)
+            }
+          }
+
+          stopifnot(
+            exists("cache_version", envir = settings, inherits = FALSE),
+            exists("normalization_start_year", envir = settings, inherits = FALSE),
+            exists("refresh_interval_hours", envir = settings, inherits = FALSE)
+          )
+
+          refresh_status <- system2(
+            file.path(R.home("bin"), "Rscript"),
+            args = c(
+              "scripts/refresh_rwd_cache.R",
+              normalizePath(".", winslash = "/", mustWork = TRUE),
+              Sys.getenv("RWD_SOURCE_URL"),
+              as.character(settings$cache_version),
+              as.character(settings$normalization_start_year),
+              format(Sys.Date(), "%Y"),
+              paste(.libPaths(), collapse = .Platform$path.sep),
+              as.character(settings$refresh_interval_hours)
+            )
+          )
+
+          if (!identical(refresh_status, 0L)) {
+            stop("The Retraction Watch cache rebuild failed.")
+          }
+
+          cache <- readRDS("retraction_watch_processed.rds")
+          required_objects <- c(
+            "retraction_data",
+            "lag_paper_data",
+            "lag_breakdown_data",
+            "country_data",
+            "publisher_data",
+            "reason_classification_data",
+            "reason_classification_summary",
+            "ieee_spike_summary",
+            "ieee_spike_conferences"
+          )
+
+          stopifnot(
+            identical(cache$cache_version, settings$cache_version),
+            is.list(cache$data),
+            all(required_objects %in% names(cache$data)),
+            identical(
+              unname(tools::md5sum("retraction_watch.csv")),
+              cache$source_md5
+            )
+          )
+
+      - name: Deploy to shinyapps.io
+        shell: Rscript {0}
+        env:
+          SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
+          SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
+        run: |
+          required_secrets <- c("SHINYAPPS_TOKEN", "SHINYAPPS_SECRET")
+          missing_secrets <- required_secrets[!nzchar(Sys.getenv(required_secrets))]
+          if (length(missing_secrets) > 0) {
+            stop(
+              "Missing required GitHub Actions secrets: ",
+              paste(missing_secrets, collapse = ", ")
+            )
+          }
+
+          rsconnect::setAccountInfo(
+            name = Sys.getenv("SHINYAPPS_ACCOUNT"),
+            token = Sys.getenv("SHINYAPPS_TOKEN"),
+            secret = Sys.getenv("SHINYAPPS_SECRET")
+          )
+
+          rsconnect::deployApp(
+            appDir = ".",
+            appName = Sys.getenv("SHINYAPPS_APP_NAME"),
+            account = Sys.getenv("SHINYAPPS_ACCOUNT"),
+            server = "shinyapps.io",
+            forceUpdate = TRUE,
+            launch.browser = FALSE,
+            logLevel = "normal"
+          )

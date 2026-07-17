@@ -3,7 +3,8 @@ args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 6) {
   stop(
     "Usage: refresh_rwd_cache.R <root> <url> <cache_version> ",
-    "<normalization_start_year> <normalization_end_year> <library_paths>"
+    "<normalization_start_year> <normalization_end_year> <library_paths> ",
+    "[refresh_interval_hours]"
   )
 }
 
@@ -13,6 +14,10 @@ cache_version <- as.integer(args[[3]])
 normalization_start_year <- as.integer(args[[4]])
 normalization_end_year <- as.integer(args[[5]])
 library_paths <- strsplit(args[[6]], .Platform$path.sep, fixed = TRUE)[[1]]
+refresh_interval_hours <- if (length(args) >= 7) as.numeric(args[[7]]) else 7 * 24
+if (!is.finite(refresh_interval_hours) || refresh_interval_hours <= 0) {
+  stop("refresh_interval_hours must be a positive number.")
+}
 library_paths <- library_paths[nzchar(library_paths) & dir.exists(library_paths)]
 if (length(library_paths) > 0) {
   .libPaths(unique(c(library_paths, .libPaths())))
@@ -102,7 +107,7 @@ tryCatch(
       source_age_hours <- as.numeric(
         difftime(Sys.time(), file.info(source_path)$mtime, units = "hours")
       )
-      source_needs_download <- isTRUE(source_age_hours > 24)
+      source_needs_download <- isTRUE(source_age_hours > refresh_interval_hours)
     }
 
     candidate_source <- source_path
