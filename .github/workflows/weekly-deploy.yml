@@ -77,14 +77,32 @@ jobs:
 
           deployment_dependencies <- rsconnect::appDependencies(appDir = ".")
           expected_app_packages <- setdiff(required_packages, "rsconnect")
-          repositories <- unique(stats::na.omit(deployment_dependencies$Repository))
-          invalid_repositories <- repositories[
-            nzchar(repositories) & !grepl("^https?://", repositories)
-          ]
+          repository_sources <- unique(
+            deployment_dependencies[c("Source", "Repository")]
+          )
+          print(repository_sources, row.names = FALSE)
+
+          uses_rspm_alias <- grepl(
+            "RSPM",
+            paste(
+              repository_sources$Source,
+              repository_sources$Repository
+            ),
+            ignore.case = TRUE
+          )
+          if (any(uses_rspm_alias)) {
+            stop(
+              "The deployment manifest still contains the unsupported RSPM alias: ",
+              paste(
+                unique(repository_sources$Repository[uses_rspm_alias]),
+                collapse = ", "
+              )
+            )
+          }
+
           stopifnot(
             nrow(deployment_dependencies) > 0,
-            all(expected_app_packages %in% deployment_dependencies$Package),
-            length(invalid_repositories) == 0
+            all(expected_app_packages %in% deployment_dependencies$Package)
           )
 
       - name: Download the latest Retraction Watch data
