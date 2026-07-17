@@ -215,12 +215,62 @@ jobs:
             secret = Sys.getenv("SHINYAPPS_SECRET")
           )
 
-          rsconnect::deployApp(
-            appDir = ".",
-            appName = Sys.getenv("SHINYAPPS_APP_NAME"),
-            account = Sys.getenv("SHINYAPPS_ACCOUNT"),
-            server = "shinyapps.io",
-            forceUpdate = TRUE,
-            launch.browser = FALSE,
-            logLevel = "normal"
-          )
+          maximum_attempts <- 3L
+          retry_delays_seconds <- c(60, 180)
+          deployment_succeeded <- FALSE
+
+          for (attempt in seq_len(maximum_attempts)) {
+            message(
+              "Starting shinyapps.io deployment attempt ",
+              attempt,
+              " of ",
+              maximum_attempts,
+              "."
+            )
+
+            deployment_error <- NULL
+            deployment_succeeded <- tryCatch(
+              {
+                rsconnect::deployApp(
+                  appDir = ".",
+                  appName = Sys.getenv("SHINYAPPS_APP_NAME"),
+                  account = Sys.getenv("SHINYAPPS_ACCOUNT"),
+                  server = "shinyapps.io",
+                  upload = identical(attempt, 1L),
+                  forceUpdate = TRUE,
+                  launch.browser = FALSE,
+                  logLevel = "normal"
+                )
+                TRUE
+              },
+              error = function(error) {
+                deployment_error <<- error
+                FALSE
+              }
+            )
+
+            if (deployment_succeeded) break
+
+            error_message <- conditionMessage(deployment_error)
+            retryable_service_error <- grepl(
+              "HTTP[[:space:]]+503|Service Unavailable",
+              error_message,
+              ignore.case = TRUE
+            )
+
+            if (!retryable_service_error || identical(attempt, maximum_attempts)) {
+              stop(deployment_error)
+            }
+
+            delay_seconds <- retry_delays_seconds[[attempt]]
+            message(
+              "shinyapps.io returned a temporary HTTP 503. Retrying the already uploaded bundle in ",
+              delay_seconds,
+              " seconds."
+            )
+            Sys.sleep(delay_seconds)
+          }
+
+          if (!deployment_succeeded) {
+            stop("The shinyapps.io deployment did not complete successfully.")
+          }
