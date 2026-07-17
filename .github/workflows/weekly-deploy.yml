@@ -236,7 +236,7 @@ jobs:
                   appName = Sys.getenv("SHINYAPPS_APP_NAME"),
                   account = Sys.getenv("SHINYAPPS_ACCOUNT"),
                   server = "shinyapps.io",
-                  upload = identical(attempt, 1L),
+                  upload = TRUE,
                   forceUpdate = TRUE,
                   launch.browser = FALSE,
                   logLevel = "normal"
@@ -264,7 +264,7 @@ jobs:
 
             delay_seconds <- retry_delays_seconds[[attempt]]
             message(
-              "shinyapps.io returned a temporary HTTP 503. Retrying the already uploaded bundle in ",
+              "shinyapps.io returned a temporary HTTP 503. Re-uploading the current dashboard bundle in ",
               delay_seconds,
               " seconds."
             )
