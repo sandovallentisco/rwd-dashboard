@@ -192,6 +192,89 @@ jobs:
             )
           )
 
+      - name: Build and validate the deployment manifest
+        shell: Rscript {0}
+        run: |
+          cran_url <- "https://cloud.r-project.org"
+          options(repos = c(CRAN = cran_url))
+
+          rsconnect::writeManifest(
+            appDir = ".",
+            dependencyResolution = "library",
+            quiet = FALSE
+          )
+
+          manifest <- jsonlite::read_json(
+            "manifest.json",
+            simplifyVector = FALSE
+          )
+          if (is.null(manifest$packages) || length(manifest$packages) == 0) {
+            stop("The generated manifest does not contain any R packages.")
+          }
+
+          repaired_packages <- character()
+          for (package_name in names(manifest$packages)) {
+            package <- manifest$packages[[package_name]]
+            repository <- package$Repository
+
+            if (
+              !is.null(repository) &&
+              identical(toupper(repository), "CRAN")
+            ) {
+              manifest$packages[[package_name]]$Repository <- cran_url
+              repaired_packages <- c(repaired_packages, package_name)
+            }
+          }
+
+          if (length(repaired_packages) > 0) {
+            message(
+              "Expanded the CRAN repository alias for ",
+              length(repaired_packages),
+              " package(s): ",
+              paste(repaired_packages, collapse = ", ")
+            )
+          }
+
+          jsonlite::write_json(
+            manifest,
+            "manifest.json",
+            auto_unbox = TRUE,
+            pretty = TRUE,
+            null = "null"
+          )
+
+          manifest_check <- jsonlite::read_json(
+            "manifest.json",
+            simplifyVector = FALSE
+          )
+          package_repositories <- vapply(
+            manifest_check$packages,
+            function(package) {
+              if (is.null(package$Repository)) "" else package$Repository
+            },
+            character(1)
+          )
+          unsupported_repositories <-
+            nzchar(package_repositories) &
+            !grepl("^https?://", package_repositories, ignore.case = TRUE)
+
+          if (any(unsupported_repositories)) {
+            stop(
+              "The deployment manifest contains unsupported repository values: ",
+              paste(
+                unique(package_repositories[unsupported_repositories]),
+                collapse = ", "
+              )
+            )
+          }
+
+          if (
+            is.null(manifest_check$packages$maps) ||
+            !identical(manifest_check$packages$maps$Repository, cran_url)
+          ) {
+            stop("The maps package does not have a deployable CRAN repository URL.")
+          }
+
       - name: Deploy to shinyapps.io
         shell: Rscript {0}
         env:
@@ -233,6 +316,7 @@ jobs:
               {
                 rsconnect::deployApp(
                   appDir = ".",
+                  manifestPath = "manifest.json",
                   appName = Sys.getenv("SHINYAPPS_APP_NAME"),
                   account = Sys.getenv("SHINYAPPS_ACCOUNT"),
                   server = "shinyapps.io",
