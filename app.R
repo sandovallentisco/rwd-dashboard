@@ -15,7 +15,7 @@ normalization_start_year <- 1990L
 normalization_end_year <- as.integer(current_year)
 
 cache_path <- "retraction_watch_processed.rds"
-cache_version <- 13L
+cache_version <- 14L
 refresh_script_path <- file.path("scripts", "refresh_rwd_cache.R")
 refresh_status_path <- "rwd_refresh_status.rds"
 refresh_log_path <- "rwd_refresh.log"
@@ -149,6 +149,20 @@ reason_procedural_labels <- c(
   "Removed",
   "Notice - Unable to Access via current resources"
 )
+
+build_reason_category_map <- function() {
+  bind_rows(lapply(
+    names(reason_category_definitions),
+    function(category) {
+      data.frame(
+        Category = category,
+        ClassificationRole = unname(reason_category_types[[category]]),
+        Reason = reason_category_definitions[[category]],
+        stringsAsFactors = FALSE
+      )
+    }
+  ))
+}
 
 process_retraction_data <- function(path) {
   df <- read.csv(path, stringsAsFactors = FALSE)
@@ -284,17 +298,7 @@ process_retraction_data <- function(path) {
     count(Reason, name = "UniqueRetractedPapers") %>%
     arrange(desc(UniqueRetractedPapers), Reason)
 
-  reason_category_map <- bind_rows(lapply(
-    names(reason_category_definitions),
-    function(category) {
-      data.frame(
-        Category = category,
-        ClassificationRole = unname(reason_category_types[[category]]),
-        Reason = reason_category_definitions[[category]],
-        stringsAsFactors = FALSE
-      )
-    }
-  ))
+  reason_category_map <- build_reason_category_map()
 
   classified_reason_pairs <- reason_paper_labels %>%
     inner_join(reason_category_map, by = "Reason") %>%
@@ -613,6 +617,7 @@ process_retraction_data <- function(path) {
     subject_data = subject_counts,
     publisher_data = publisher_counts,
     reason_data = reason_counts,
+    paper_reason_data = reason_paper_labels,
     reason_classification_data = reason_classification_data,
     reason_classification_summary = reason_classification_summary,
     author_data = author_counts,
@@ -641,6 +646,7 @@ load_retraction_data <- function(path, cache_file) {
       "retraction_data",
       "lag_paper_data",
       "lag_breakdown_data",
+      "paper_reason_data",
       "reason_classification_data",
       "reason_classification_summary",
       "ieee_spike_summary",
@@ -801,6 +807,8 @@ launch_data_refresh <- function() {
 refresh_was_launched <- launch_data_refresh()
 
 citation_impact_data <- read.csv("citation_impact_data.csv", stringsAsFactors = FALSE)
+citation_impact_total_data <- read.csv("citation_impact_total_data.csv", stringsAsFactors = FALSE)
+citation_impact_top_articles <- read.csv("citation_impact_top200.csv", stringsAsFactors = FALSE)
 citation_impact_summary <- read.csv("citation_impact_summary.csv", stringsAsFactors = FALSE)
 
 author_identity_files <- c(
@@ -1291,9 +1299,22 @@ ui <- navbarPage(
         .impact-cell { min-height: 124px; padding: 24px; border-right: 1px solid var(--rule); }
         .impact-cell:last-child { border-right: 0; }
         .impact-label { color: #303842; font-size: .7rem; font-weight: 900; letter-spacing: .075em; line-height: 1.35; text-transform: uppercase; }
+        .impact-label-with-info { display: inline-flex; align-items: center; gap: 6px; }
         .impact-value { margin-top: 9px; color: #111111; font-family: 'Lato', Arial, sans-serif; font-size: 2rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
         .impact-value.negative { color: var(--red); }
         .impact-note { margin-top: 7px; color: var(--muted); font-size: .72rem; line-height: 1.35; }
+        .citation-download-row {
+          display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px;
+          margin: -15px 0 30px;
+        }
+        .citation-download-button {
+          display: inline-flex; align-items: center; padding: .55rem .85rem;
+          border: 1px solid var(--navy); border-radius: 3px; background: var(--navy); color: #ffffff;
+          font-size: .78rem; font-weight: 900; text-decoration: none;
+        }
+        .citation-download-button:hover,
+        .citation-download-button:focus { border-color: var(--red); background: var(--red); color: #ffffff; }
+        .citation-download-note { color: var(--muted); font-size: .72rem; line-height: 1.45; }
         .analysis-callout { padding: 2px 2px 4px; color: #303842; font-size: 1rem; line-height: 1.7; }
         .analysis-callout strong { color: var(--navy); }
         .analysis-callout p:last-child { margin-bottom: 0; }
@@ -1398,7 +1419,7 @@ ui <- navbarPage(
         }
         .author-articles-menu > summary::-webkit-details-marker { display: none; }
         .author-articles-menu > summary::before {
-          content: '\25B8'; flex: 0 0 auto; color: var(--red); font-size: .9rem;
+          content: '\\25B8'; flex: 0 0 auto; color: var(--red); font-size: .9rem;
           transform-origin: center; transition: transform .15s ease;
         }
         .author-articles-menu[open] > summary::before { transform: rotate(90deg); }
@@ -1409,6 +1430,7 @@ ui <- navbarPage(
           flex: 0 0 auto; padding: 2px 7px; background: var(--navy); color: #ffffff;
           font-size: .65rem; letter-spacing: 0; line-height: 1.4;
         }
+        .leaderboard-articles-under-chart .author-articles-menu { margin-top: 12px; }
         .author-articles-list {
           max-height: 520px; overflow-y: auto; border-top: 1px solid var(--rule);
         }
@@ -1477,6 +1499,7 @@ ui <- navbarPage(
           border-color: var(--navy); background: var(--navy); color: #ffffff; outline: 0;
           box-shadow: 0 0 0 3px rgba(0, 33, 71, .16);
         }
+        .citation-sample-info-button { vertical-align: middle; }
         .author-popover-section { margin-bottom: 14px; }
         .author-popover-section:last-child { margin-bottom: 0; }
         .author-popover-label {
@@ -1491,6 +1514,17 @@ ui <- navbarPage(
         }
         .author-popover-status.review { border-color: #d8aeb2; background: #fbebed; color: #85202a; }
         .author-info-modal .modal-dialog { max-width: 840px; }
+        .citation-top-articles { max-height: 680px; overflow: auto; }
+        .citation-top-articles table { min-width: 980px; margin-bottom: 0; }
+        .citation-top-articles thead th {
+          position: sticky; top: 0; z-index: 1; background: #ffffff;
+          border-bottom: 2px solid var(--navy); color: var(--navy);
+        }
+        .citation-top-article-title { color: var(--navy); font-weight: 900; text-decoration: none; }
+        .citation-top-article-title:hover,
+        .citation-top-article-title:focus { color: var(--red); text-decoration: underline; }
+        .citation-top-article-meta { margin-top: 4px; color: var(--muted); font-size: .72rem; line-height: 1.45; }
+        .citation-top-number { font-family: 'Lato', Arial, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
         .author-info-modal .modal-content {
           border: 1px solid var(--rule); border-radius: 0; background: #ffffff;
           box-shadow: 0 18px 48px rgba(29, 36, 43, .22);
@@ -1829,18 +1863,29 @@ ui <- navbarPage(
       "Citation Impact",
     div(class = "tab-spacer", `aria-hidden` = "true"),
     uiOutput("citation_impact_stats"),
+    div(
+      class = "citation-download-row",
+      downloadButton(
+        "download_citation_reproducibility",
+        "Download detailed reproducibility data (.CSV)",
+        class = "btn citation-download-button"
+      ),
+      span(
+        class = "citation-download-note",
+        "All 8,000 sampled papers, metadata, DOI and OpenAlex links, inclusion flags and annual citation counts from year −5 through +5."
+      )
+    ),
     fluidRow(
       column(
         8,
         chart_card(
           "Citations around the retraction year",
-          "Mean number of citing works among papers already published by each year relative to retraction.",
-          plotlyOutput("citation_impact_plot", height = "470px"),
+          "Annual mean, median and interquartile range of citing works among papers already published in each relative year.",
+          plotlyOutput("citation_impact_plot", height = "500px"),
           paste0(
             "Source: OpenAlex. Retrieved ", citation_metric("retrieved_date", numeric = FALSE),
-            ". Year 0 is the calendar year in which the retraction was issued. Each point includes only papers ",
-            "that had already been published; the denominator is shown in the tooltip. ",
-            "The 2015 retraction cutoff makes the +10 window complete through 2025."
+            ". Year 0 is the calendar year in which the retraction was issued. Before year 0, each value includes only papers ",
+            "that had already been published; the denominator is shown in the tooltip. All matched papers are observable from year 0 through year +5."
           )
         )
       ),
@@ -1848,7 +1893,7 @@ ui <- navbarPage(
         4,
         chart_card(
           "Annual citation-rate summary",
-          "Average of the annual citation means before and after retraction. The retraction year is shown separately.",
+          "Average of the annual citation means across the five years before and after retraction. The retraction year is shown separately.",
           div(class = "flush", tableOutput("citation_impact_table")),
           "The pre-retraction denominator grows as papers enter the published cohort; the post-retraction denominator is fixed."
         )
@@ -1858,12 +1903,16 @@ ui <- navbarPage(
       column(
         12,
         chart_card(
-          "Cumulative annual citation rate around the retraction year",
-          "Running sum of the annual mean number of citing works per eligible paper, starting ten years before retraction.",
-          plotlyOutput("citation_impact_cumulative_plot", height = "430px"),
+          "Mean total citations per paper, −5 to +5 years",
           paste0(
-            "Source: OpenAlex. Each annual mean uses the papers already published in that relative year, and the series ",
-            "accumulates those annual means from year −10. It is not a lifetime cumulative mean for a fixed cohort."
+            "Running total of citing works from year −5 through each relative year for the fixed cohort of ",
+            format(citation_metric("fixed_window_records"), big.mark = ","),
+            " papers already published by year −5."
+          ),
+          plotlyOutput("citation_impact_total_plot", height = "470px"),
+          paste0(
+            "Source: OpenAlex. The same ", format(citation_metric("fixed_window_records"), big.mark = ","),
+            " papers contribute at every point, so these are distributions of actual per-paper totals—not sums of annual means with changing denominators."
           )
         )
       )
@@ -1872,14 +1921,12 @@ ui <- navbarPage(
       column(
         12,
         chart_card(
-          "What the pattern shows",
-          "A denominator-aware descriptive comparison; it does not estimate a causal effect of retraction.",
-          uiOutput("citation_impact_interpretation"),
+          "200 most-cited papers after retraction",
+          "Ranked by the number of citing works published in relative years +1 through +5 after each paper's retraction year.",
+          div(class = "flush citation-top-articles table-responsive", uiOutput("citation_top_articles_table")),
           paste0(
-            "Stratified sample of ", format(citation_metric("sampled_records"), big.mark = ","),
-            " unique DOI records retracted through ", citation_metric("retraction_cutoff_year"),
-            "; ", format(citation_metric("completed_records"), big.mark = ","),
-            " were matched and analyzed (", citation_metric("coverage_pct"), "% coverage)."
+            "Source: OpenAlex and the Retraction Watch Database. Year 0 is excluded because it combines time before and after the retraction date. ",
+            "The ranking is descriptive and citation counts may change as OpenAlex updates its index."
           )
         )
       )
@@ -2012,8 +2059,7 @@ ui <- navbarPage(
                   width = "100%"
                 )
               ),
-              uiOutput("leaderboard_profile_stats"),
-              uiOutput("leaderboard_articles")
+              uiOutput("leaderboard_profile_stats")
             ),
             if (author_identity_available) {
               "OpenAlex works count is a changing external denominator and should be interpreted as a descriptive normalization, not an estimate of misconduct risk."
@@ -2029,17 +2075,18 @@ ui <- navbarPage(
             if (author_identity_available) "DOI-matched unique retracted papers associated with the selected OpenAlex identity by retraction year." else "Unique retracted papers associated with the selected author name by retraction year.",
             plotlyOutput("leaderboard_timeline_plot", height = "390px"),
             "The earliest recorded retraction year is used when duplicate RWD records refer to the same original paper."
-          )
+          ),
+          div(class = "leaderboard-articles-under-chart", uiOutput("leaderboard_articles"))
         )
       ),
       fluidRow(
         column(
           6,
           chart_card(
-            "Most frequent retraction reasons",
-            if (author_identity_available) "Underlying reasons recorded for unique retracted papers matched to the selected OpenAlex identity." else "Underlying reasons recorded for unique retracted papers associated with the selected author name.",
+            "Most frequent retraction reasons from this author",
+            if (author_identity_available) "The Overview retraction-reason taxonomy applied to unique retracted papers matched to the selected OpenAlex identity." else "The Overview retraction-reason taxonomy applied to unique retracted papers associated with the selected author name.",
             div(class = "flush table-responsive", tableOutput("leaderboard_reasons_table")),
-            "A paper can list multiple reasons; investigation-source categories are excluded."
+            "Categories are not mutually exclusive. Substantive categories describe the reported concern; pathways/context describe how or why the retraction decision was reached."
           )
         ),
         column(
@@ -2064,6 +2111,7 @@ server <- function(input, output, session) {
   subject_data <- reactiveVal(processed_data$subject_data)
   publisher_data <- reactiveVal(processed_data$publisher_data)
   reason_data <- reactiveVal(processed_data$reason_data)
+  paper_reason_data <- reactiveVal(processed_data$paper_reason_data)
   reason_classification_data <- reactiveVal(processed_data$reason_classification_data)
   reason_classification_summary_data <- reactiveVal(processed_data$reason_classification_summary)
   ieee_spike_summary_data <- reactiveVal(processed_data$ieee_spike_summary)
@@ -2118,6 +2166,7 @@ server <- function(input, output, session) {
     subject_data(data$subject_data)
     publisher_data(data$publisher_data)
     reason_data(data$reason_data)
+    paper_reason_data(data$paper_reason_data)
     reason_classification_data(data$reason_classification_data)
     reason_classification_summary_data(data$reason_classification_summary)
     ieee_spike_summary_data(data$ieee_spike_summary)
@@ -2420,92 +2469,283 @@ server <- function(input, output, session) {
   })
 
   output$citation_impact_stats <- renderUI({
-    before <- citation_impact_data %>% filter(relative_year == -1)
-    after <- citation_impact_data %>% filter(relative_year == 1)
+    year_minus_five <- citation_impact_data %>% filter(relative_year == -5)
+    year_plus_five <- citation_impact_data %>% filter(relative_year == 5)
     matched_records <- citation_metric("completed_records")
+    fixed_window_records <- citation_metric("fixed_window_records")
+    sampled_records <- citation_metric("sampled_records")
+    cutoff_year <- citation_metric("retraction_cutoff_year")
+    sample_modal_content <- paste0(
+      as.character(tagList(
+        div(
+          class = "author-popover-section",
+          div(class = "author-popover-label", "Sampling frame"),
+          div(
+            class = "author-popover-value",
+            paste0(
+              "The sampling frame comprises Retraction Watch Database records with a valid DOI for the original paper and a usable retraction year. The retraction-year cutoff is ",
+              cutoff_year,
+              " so that every matched paper can have a complete five-calendar-year post-retraction window through 2025: a paper retracted in 2020 is followed in 2021, 2022, 2023, 2024 and 2025. The cutoff applies to the retraction year, not the publication year; sampled papers may have been published many years earlier."
+            )
+          )
+        ),
+        div(
+          class = "author-popover-section",
+          div(class = "author-popover-label", "How the 8,000 papers were selected"),
+          div(
+            class = "author-popover-value",
+            paste0(
+              "After applying the DOI and date criteria, a proportional stratified random sample of ",
+              format(sampled_records, big.mark = ",", trim = TRUE),
+              " papers was drawn across retraction years with reproducible random seed ",
+              format(citation_metric("random_seed"), scientific = FALSE, trim = TRUE), "."
+            )
+          )
+        ),
+        div(
+          class = "author-popover-section",
+          div(class = "author-popover-label", "Why the sample is stratified"),
+          div(
+            class = "author-popover-value",
+            "Retractions are distributed very unevenly over time: recent years contain many more records, and exceptional cohorts can create large spikes. A simple random sample could therefore be dominated by the largest years and contain very few papers from earlier years. Sampling separately within each retraction year, with the number selected approximately proportional to that year's share of eligible records, preserves the temporal composition of the source data while retaining representation from sparse years. This is proportional stratification, not an equal number of papers from every year."
+          )
+        ),
+        div(
+          class = "author-popover-section",
+          div(class = "author-popover-label", "How duplicate DOI records are handled"),
+          div(
+            class = "author-popover-value",
+            "Occasionally, more than one RWD row points to the same original-paper DOI. Because those rows refer to the same scholarly paper, counting every row would give that paper extra weight. They are therefore combined into one paper before sampling. If the duplicate rows contain different retraction years, the earliest recorded retraction year is used as the start of follow-up: it is the first year in which the paper is recorded as retracted and prevents later notices or record updates from shifting the citation window forward. This rule does not treat later rows as separate papers."
+          )
+        ),
+        div(
+          class = "author-popover-section",
+          div(class = "author-popover-label", "OpenAlex matching and observation window"),
+          div(
+            class = "author-popover-value",
+            paste0(
+              format(matched_records, big.mark = ",", trim = TRUE),
+              " sampled DOI records were matched and successfully processed in OpenAlex (",
+              citation_metric("coverage_pct"), "%). Citation counts cover relative years −5 through +5. At negative years, a paper enters the denominator only after it has been published; all matched papers can contribute from the retraction year through year +5."
+            )
+          )
+        ),
+        div(
+          class = "author-popover-section",
+          div(class = "author-popover-label", "How the two analyses differ"),
+          div(
+            class = "author-popover-value",
+            "The annual chart uses the available-paper denominator at each relative year. The total-citations chart instead uses one fixed cohort: papers already published by year −5, followed continuously through year +5. The post-retraction ranking sums citing works in years +1 to +5 and excludes year 0 because that calendar year includes time both before and after the retraction notice."
+          )
+        ),
+        div(
+          class = "author-popover-section",
+          div(class = "author-popover-label", "Downloadable reproducibility data"),
+          div(
+            class = "author-popover-value",
+            "The downloadable CSV contains one row for every sampled paper, including papers that did not match OpenAlex. It provides the title, authors, journal, publisher, DOI and OpenAlex links, publication and retraction years, sampling stratum and seed, fixed-cohort status, post-retraction total and Top 200 rank. For every relative year from −5 through +5 it also reports the corresponding calendar year, whether the paper was included in that year's denominator, and its citing-work count. A blank citation count means that the paper was not observable in that cell or was not matched; an observed zero is stored explicitly as 0."
+          )
+        ),
+        div(
+          class = "author-popover-section",
+          div(class = "author-popover-label", "Limitations"),
+          div(
+            class = "author-popover-value",
+            "This is not a causal estimate because there is no counterfactual comparison group showing how the same papers—or comparable non-retracted papers—would have been cited if no retraction had occurred. Retraction is not randomly assigned: its timing and likelihood are related to paper age, field, journal, reason for retraction, prior citation trajectory and public attention. Consequently, changes around year 0 may reflect normal citation ageing, cohort composition or publicity as well as the retraction itself. The retraction year is also measured as a calendar year, so year 0 mixes time before and after the exact notice date. Finally, the sample requires a DOI and OpenAlex match; OpenAlex coverage is incomplete and its citation histories can change when the index is updated. The charts therefore describe citation trajectories around retraction but cannot tell us how many citations the retraction caused or prevented."
+          )
+        )
+      )),
+      collapse = ""
+    )
 
     div(
       class = "impact-strip row g-0",
       div(class = "impact-cell col-12 col-sm-6 col-lg-3",
-          div(class = "impact-label", "Papers matched to OpenAlex"),
-          div(class = "impact-value", format(citation_metric("completed_records"), big.mark = ",")),
-          div(class = "impact-note", paste0(citation_metric("coverage_pct"), "% of the stratified sample"))
+          div(
+            class = "impact-label impact-label-with-info",
+            span("Total sample"),
+            tags$button(
+              type = "button",
+              class = "author-info-button citation-sample-info-button",
+              "i",
+              `aria-label` = "How the citation-impact sample was selected",
+              `data-modal-title` = "How the citation-impact sample was selected",
+              `data-modal-content` = sample_modal_content
+            )
+          ),
+          div(class = "impact-value", format(sampled_records, big.mark = ",")),
+          div(
+            class = "impact-note",
+            paste0(format(matched_records, big.mark = ","), " matched to OpenAlex · ", citation_metric("coverage_pct"), "%")
+          )
       ),
       div(class = "impact-cell col-12 col-sm-6 col-lg-3",
-          div(class = "impact-label", "Papers observed one year before"),
-          div(class = "impact-value", format(before$papers_in_denominator, big.mark = ",")),
-          div(class = "impact-note", paste0(round(100 * before$papers_in_denominator / matched_records, 1), "% of matched papers"))
+          div(class = "impact-label", "Papers observed at year −5"),
+          div(class = "impact-value", format(year_minus_five$papers_in_denominator, big.mark = ",")),
+          div(class = "impact-note", paste0(round(100 * year_minus_five$papers_in_denominator / matched_records, 1), "% of matched papers"))
       ),
       div(class = "impact-cell col-12 col-sm-6 col-lg-3",
-          div(class = "impact-label", "Mean one year before"),
-          div(class = "impact-value", format(round(before$mean_per_paper, 2), nsmall = 2)),
-          div(class = "impact-note", "Among papers already published")
+          div(class = "impact-label", "Papers observed at year +5"),
+          div(class = "impact-value", format(year_plus_five$papers_in_denominator, big.mark = ",")),
+          div(class = "impact-note", "100% of matched papers")
       ),
       div(class = "impact-cell col-12 col-sm-6 col-lg-3",
-          div(class = "impact-label", "Mean one year after"),
-          div(class = "impact-value", format(round(after$mean_per_paper, 2), nsmall = 2)),
-          div(class = "impact-note", paste0("All ", format(after$papers_in_denominator, big.mark = ","), " matched papers"))
+          div(class = "impact-label", "Fixed −5 to +5 cohort"),
+          div(class = "impact-value", format(fixed_window_records, big.mark = ",")),
+          div(class = "impact-note", "Published by year −5 and observed through +5")
       )
+    )
+  })
+
+  output$download_citation_reproducibility <- downloadHandler(
+    filename = function() {
+      paste0(
+        "rwd-citation-impact-reproducibility-",
+        citation_metric("retrieved_date", numeric = FALSE),
+        ".csv"
+      )
+    },
+    content = function(file) {
+      file.copy("citation_impact_reproducibility.csv", file, overwrite = TRUE)
+    },
+    contentType = "text/csv"
+  )
+
+  output$citation_top_articles_table <- renderUI({
+    req(nrow(citation_impact_top_articles) > 0)
+
+    table_rows <- lapply(seq_len(nrow(citation_impact_top_articles)), function(index) {
+      article <- citation_impact_top_articles[index, ]
+      publication_year <- if (is.na(article$publication_year) || article$publication_year == "") {
+        "Unknown"
+      } else {
+        format(as.integer(article$publication_year), scientific = FALSE, trim = TRUE)
+      }
+      retraction_year <- format(as.integer(article$retraction_year), scientific = FALSE, trim = TRUE)
+
+      tags$tr(
+        tags$td(class = "citation-top-number", format(as.integer(article$rank), big.mark = ",", trim = TRUE)),
+        tags$td(
+          tags$a(
+            class = "citation-top-article-title",
+            article$title,
+            href = paste0("https://doi.org/", article$doi),
+            target = "_blank",
+            rel = "noopener noreferrer"
+          ),
+          div(class = "citation-top-article-meta", article$authors),
+          div(
+            class = "citation-top-article-meta",
+            paste(c(article$journal, article$publisher)[c(article$journal, article$publisher) != ""], collapse = " · ")
+          )
+        ),
+        tags$td(class = "citation-top-number", publication_year),
+        tags$td(class = "citation-top-number", retraction_year),
+        tags$td(
+          class = "citation-top-number text-end",
+          format(as.integer(article$post_retraction_citations), big.mark = ",", trim = TRUE)
+        )
+      )
+    })
+
+    tags$table(
+      class = "table table-hover align-middle",
+      tags$thead(
+        tags$tr(
+          tags$th(scope = "col", "Rank"),
+          tags$th(scope = "col", "Article"),
+          tags$th(scope = "col", "Publication year"),
+          tags$th(scope = "col", "Retraction year"),
+          tags$th(scope = "col", class = "text-end", "Citing works, years +1 to +5")
+        )
+      ),
+      tags$tbody(table_rows)
     )
   })
 
   output$citation_impact_plot <- renderPlotly({
     df <- citation_impact_data %>%
       mutate(
-        period = factor(period, levels = c("Before retraction", "Retraction year", "After retraction")),
         Tooltip = paste0(
           "<b>Relative Year:</b> ", ifelse(relative_year > 0, paste0("+", relative_year), relative_year),
-          "<br><b>Mean per Paper:</b> ", format(round(mean_per_paper, 2), nsmall = 2),
+          "<br><b>Mean:</b> ", format(round(mean_per_paper, 2), nsmall = 2),
+          "<br><b>Median:</b> ", format(round(median_per_paper, 2), nsmall = 2),
+          "<br><b>IQR:</b> ", format(round(q1_per_paper, 2), nsmall = 2),
+          "–", format(round(q3_per_paper, 2), nsmall = 2),
           "<br><b>Citing Works:</b> ", format(citing_works, big.mark = ",", trim = TRUE),
           "<br><b>Papers in Denominator:</b> ", format(papers_in_denominator, big.mark = ",", trim = TRUE)
         )
       )
 
-    p <- ggplot(df, aes(x = relative_year, y = mean_per_paper)) +
+    p <- ggplot(df, aes(x = relative_year)) +
       geom_vline(xintercept = 0, color = "#b42532", linetype = "dashed", size = 0.65) +
-      geom_line(aes(group = 1), color = "#002147", size = 1.15) +
-      geom_point(aes(color = period, text = Tooltip), size = 3.1) +
+      geom_linerange(
+        aes(ymin = q1_per_paper, ymax = q3_per_paper, linetype = "IQR", text = Tooltip),
+        color = "#9aa5b0", size = 2.1
+      ) +
+      geom_line(aes(y = median_per_paper, color = "Median", group = 1), size = 0.85) +
+      geom_point(aes(y = median_per_paper, color = "Median", shape = "Median", text = Tooltip), size = 2.8) +
+      geom_line(aes(y = mean_per_paper, color = "Mean", group = 1), size = 1.05) +
+      geom_point(aes(y = mean_per_paper, color = "Mean", shape = "Mean", text = Tooltip), size = 3.1) +
       scale_color_manual(
-        values = c(
-          "Before retraction" = "#4c6a9c",
-          "Retraction year" = "#111111",
-          "After retraction" = "#b42532"
-        ),
+        values = c("Median" = "#002147", "Mean" = "#b42532"),
         name = NULL
       ) +
-      scale_x_continuous(breaks = seq(-10, 10, by = 1)) +
-      labs(x = "Years relative to retraction", y = "Mean citing works per paper") +
+      scale_shape_manual(values = c("Median" = 16, "Mean" = 17), name = NULL) +
+      scale_linetype_manual(values = c("IQR" = "solid"), name = NULL) +
+      scale_x_continuous(breaks = seq(-5, 5, by = 1)) +
+      labs(x = "Years relative to retraction", y = "Annual citing works per paper") +
       owid_plot_theme() +
+      guides(
+        color = guide_legend(order = 1),
+        shape = guide_legend(order = 1),
+        linetype = guide_legend(order = 2, override.aes = list(color = "#9aa5b0", size = 1.7))
+      ) +
       theme(legend.position = "top", legend.justification = "left")
 
-    owid_plotly(p, tooltip = "text")
+    clean_lag_summary_legend(owid_plotly(p, tooltip = "text"))
   })
 
-  output$citation_impact_cumulative_plot <- renderPlotly({
-    df <- citation_impact_data %>%
-      arrange(relative_year) %>%
+  output$citation_impact_total_plot <- renderPlotly({
+    df <- citation_impact_total_data %>%
       mutate(
-        cumulative_mean_rate = cumsum(mean_per_paper),
         Tooltip = paste0(
           "<b>Relative Year:</b> ", ifelse(relative_year > 0, paste0("+", relative_year), relative_year),
-          "<br><b>Annual Mean per Paper:</b> ", format(round(mean_per_paper, 2), nsmall = 2),
-          "<br><b>Cumulative Sum of Annual Means:</b> ", format(round(cumulative_mean_rate, 2), nsmall = 2),
-          "<br><b>Papers in Denominator:</b> ", format(papers_in_denominator, big.mark = ",", trim = TRUE)
+          "<br><b>Mean Total:</b> ", format(round(mean_total_per_paper, 2), nsmall = 2),
+          "<br><b>Median Total:</b> ", format(round(median_total_per_paper, 2), nsmall = 2),
+          "<br><b>IQR:</b> ", format(round(q1_total_per_paper, 2), nsmall = 2),
+          "–", format(round(q3_total_per_paper, 2), nsmall = 2),
+          "<br><b>Fixed Cohort:</b> ", format(papers_in_denominator, big.mark = ",", trim = TRUE)
         )
       )
 
-    p <- ggplot(df, aes(x = relative_year, y = cumulative_mean_rate)) +
+    p <- ggplot(df, aes(x = relative_year)) +
       geom_vline(xintercept = 0, color = "#b42532", linetype = "dashed", size = 0.65) +
-      geom_line(aes(group = 1), color = "#002147", size = 1.15) +
-      geom_point(aes(text = Tooltip), color = "#4c6a9c", size = 3.1) +
-      scale_x_continuous(breaks = seq(-10, 10, by = 1)) +
+      geom_linerange(
+        aes(ymin = q1_total_per_paper, ymax = q3_total_per_paper, linetype = "IQR", text = Tooltip),
+        color = "#9aa5b0", size = 2.1
+      ) +
+      geom_line(aes(y = median_total_per_paper, color = "Median", group = 1), size = 0.85) +
+      geom_point(aes(y = median_total_per_paper, color = "Median", shape = "Median", text = Tooltip), size = 2.8) +
+      geom_line(aes(y = mean_total_per_paper, color = "Mean", group = 1), size = 1.05) +
+      geom_point(aes(y = mean_total_per_paper, color = "Mean", shape = "Mean", text = Tooltip), size = 3.1) +
+      scale_color_manual(values = c("Median" = "#002147", "Mean" = "#b42532"), name = NULL) +
+      scale_shape_manual(values = c("Median" = 16, "Mean" = 17), name = NULL) +
+      scale_linetype_manual(values = c("IQR" = "solid"), name = NULL) +
+      scale_x_continuous(breaks = seq(-5, 5, by = 1)) +
       labs(
         x = "Years relative to retraction",
-        y = "Cumulative sum of annual means"
+        y = "Total citing works per paper since year −5"
       ) +
-      owid_plot_theme()
+      owid_plot_theme() +
+      guides(
+        color = guide_legend(order = 1),
+        shape = guide_legend(order = 1),
+        linetype = guide_legend(order = 2, override.aes = list(color = "#9aa5b0", size = 1.7))
+      ) +
+      theme(legend.position = "top", legend.justification = "left")
 
-    owid_plotly(p, tooltip = "text")
+    clean_lag_summary_legend(owid_plotly(p, tooltip = "text"))
   })
 
   output$citation_impact_table <- renderTable({
@@ -2514,7 +2754,7 @@ server <- function(input, output, session) {
     after <- citation_impact_data %>% filter(relative_year > 0)
 
     data.frame(
-      Period = c("10 years before", "Retraction year", "10 years after"),
+      Period = c("5 years before", "Retraction year", "5 years after"),
       `Mean annual citing works per paper` = c(
         mean(before$mean_per_paper),
         year_zero$mean_per_paper,
@@ -2529,42 +2769,6 @@ server <- function(input, output, session) {
     ) %>%
       mutate(`Mean annual citing works per paper` = format(round(`Mean annual citing works per paper`, 2), nsmall = 2))
   }, width = "100%", striped = TRUE, hover = TRUE, bordered = FALSE, align = "lrr")
-
-  output$citation_impact_interpretation <- renderUI({
-    peak <- citation_impact_data %>% slice_max(mean_per_paper, n = 1, with_ties = FALSE)
-    year_minus_ten <- citation_impact_data %>% filter(relative_year == -10)
-    year_minus_one <- citation_impact_data %>% filter(relative_year == -1)
-    year_zero <- citation_impact_data %>% filter(relative_year == 0)
-    year_plus_one <- citation_impact_data %>% filter(relative_year == 1)
-    year_plus_ten <- citation_impact_data %>% filter(relative_year == 10)
-    post_decline <- 100 * (1 - year_plus_ten$mean_per_paper / year_plus_one$mean_per_paper)
-
-    div(
-      class = "analysis-callout",
-      tags$p(
-        "Among papers already published in each relative year, the highest annual mean occurs in year ",
-        tags$strong(ifelse(peak$relative_year > 0, paste0("+", peak$relative_year), peak$relative_year)),
-        paste0(" (", round(peak$mean_per_paper, 2), " citing works per paper).")
-      ),
-      tags$p(
-        "The denominator expands from ",
-        tags$strong(format(year_minus_ten$papers_in_denominator, big.mark = ",")),
-        " papers in year −10 to ",
-        tags$strong(format(year_minus_one$papers_in_denominator, big.mark = ",")),
-        " in year −1 and ",
-        tags$strong(format(year_zero$papers_in_denominator, big.mark = ",")),
-        " in year 0. Changes across year 0 therefore combine citation behavior with a large cohort expansion."
-      ),
-      tags$p(
-        "From year +1 through +10, the denominator remains fixed at ",
-        tags$strong(format(year_plus_one$papers_in_denominator, big.mark = ",")),
-        " papers. Across that comparable post-retraction cohort, the annual mean declines from ",
-        tags$strong(round(year_plus_one$mean_per_paper, 2)),
-        " to ", tags$strong(round(year_plus_ten$mean_per_paper, 2)),
-        paste0(" citing works per paper (", round(post_decline, 1), "% lower).")
-      )
-    )
-  })
   
   output$pub_outliers_note <- renderUI({
     req(retraction_data())
@@ -3732,26 +3936,55 @@ server <- function(input, output, session) {
     owid_plotly(p, tooltip = "text")
   })
 
-  output$leaderboard_reasons_table <- renderTable({
+  leaderboard_reason_categories <- reactive({
     req(input$leaderboard_author)
+
     if (author_identity_available) {
-      req(resolved_author_reason_data())
-      resolved_author_reason_data() %>%
+      req(resolved_author_paper_data())
+      selected_papers <- resolved_author_paper_data() %>%
         filter(openalex_author_id == input$leaderboard_author) %>%
-        head(10) %>%
-        select(reason, unique_retracted_papers) %>%
-        mutate(unique_retracted_papers = as.integer(unique_retracted_papers)) %>%
-        rename(`Reason for retraction` = reason, `Unique retracted papers` = unique_retracted_papers)
+        transmute(PaperKey = paper_key)
     } else {
-      req(author_reason_data())
-      author_reason_data() %>%
+      req(author_paper_data())
+      selected_papers <- author_paper_data() %>%
         filter(Author == input$leaderboard_author) %>%
-        head(10) %>%
-        select(Reason, UniqueRetractedPapers) %>%
-        mutate(UniqueRetractedPapers = as.integer(UniqueRetractedPapers)) %>%
-        rename(`Reason for retraction` = Reason, `Unique retracted papers` = UniqueRetractedPapers)
+        select(PaperKey)
     }
-  }, width = "100%", striped = TRUE, hover = TRUE, bordered = FALSE, align = "lr")
+
+    selected_papers <- selected_papers %>% distinct(PaperKey)
+    req(nrow(selected_papers) > 0, paper_reason_data())
+
+    selected_reason_labels <- paper_reason_data() %>%
+      semi_join(selected_papers, by = "PaperKey")
+
+    selected_reason_labels %>%
+      inner_join(build_reason_category_map(), by = "Reason") %>%
+      distinct(PaperKey, Category, ClassificationRole) %>%
+      count(ClassificationRole, Category, name = "UniqueRetractedPapers") %>%
+      mutate(
+        RoleOrder = match(
+          ClassificationRole,
+          c("Substantive category", "Pathway / context")
+        ),
+        CategoryOrder = match(Category, names(reason_category_definitions))
+      ) %>%
+      arrange(desc(UniqueRetractedPapers), RoleOrder, CategoryOrder)
+  })
+
+  output$leaderboard_reasons_table <- renderTable({
+    categories <- leaderboard_reason_categories()
+    validate(need(
+      nrow(categories) > 0,
+      "No labels from the Overview retraction-reason taxonomy were found for this author."
+    ))
+
+    categories %>%
+      transmute(
+        Classification = ClassificationRole,
+        `Retraction reason category` = Category,
+        `Unique retracted papers` = as.integer(UniqueRetractedPapers)
+      )
+  }, width = "100%", striped = TRUE, hover = TRUE, bordered = FALSE, align = "llr")
 
   output$leaderboard_publishers_table <- renderTable({
     req(input$leaderboard_author)

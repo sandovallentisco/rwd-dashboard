@@ -154,6 +154,7 @@ tryCatch(
           "retraction_data",
           "lag_paper_data",
           "lag_breakdown_data",
+          "paper_reason_data",
           "reason_classification_data",
           "reason_classification_summary",
           "ieee_spike_summary",
@@ -195,6 +196,7 @@ tryCatch(
         "reason_category_definitions",
         "reason_category_types",
         "reason_procedural_labels",
+        "build_reason_category_map",
         "process_retraction_data"
       )) {
         eval(expression, envir = pipeline_environment)
@@ -210,6 +212,7 @@ tryCatch(
       "retraction_data",
       "lag_paper_data",
       "lag_breakdown_data",
+      "paper_reason_data",
       "country_data",
       "publisher_data",
       "reason_classification_data",
@@ -244,6 +247,7 @@ tryCatch(
         "retraction_data",
         "lag_paper_data",
         "lag_breakdown_data",
+        "paper_reason_data",
         "reason_classification_data",
         "reason_classification_summary",
         "ieee_spike_summary",

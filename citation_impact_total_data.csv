@@ -1,0 +1,12 @@
+relative_year,period,mean_total_per_paper,median_total_per_paper,q1_total_per_paper,q3_total_per_paper,papers_in_denominator
+-5,Before retraction,4.351,1,0.0,5.0,1205
+-4,Before retraction,9.4158,4,1.0,11.0,1205
+-3,Before retraction,14.5162,6,1.0,17.0,1205
+-2,Before retraction,19.4772,8,2.0,23.0,1205
+-1,Before retraction,24.2232,11,3.0,28.0,1205
+0,Retraction year,28.6465,12,3.0,33.0,1205
+1,After retraction,31.5602,14,4.0,36.0,1205
+2,After retraction,33.9295,15,4.0,38.0,1205
+3,After retraction,35.8664,15,4.0,40.0,1205
+4,After retraction,37.6498,16,4.0,43.0,1205
+5,After retraction,39.1876,17,4.0,45.0,1205
